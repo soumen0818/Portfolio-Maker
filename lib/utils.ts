@@ -1,6 +1,9 @@
 import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+// Temporarily disable tailwind-merge to fix server-side issues
+// import { twMerge } from "tailwind-merge"
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+  // Temporarily use only clsx to avoid server-side bundling issues
+  return clsx(inputs)
+  // return twMerge(clsx(inputs))
 }
