@@ -15,18 +15,19 @@ export function PersonalDetailsStep({ formData, updateFormData }: PersonalDetail
   return (
     <div className="space-y-4">
       <div>
-        <Label htmlFor="name">Full Name *</Label>
+        <Label htmlFor="name" className="text-white font-medium">Full Name *</Label>
         <Input
           id="name"
           placeholder="Enter your full name"
           value={formData.name}
           onChange={(e) => updateFormData({ name: e.target.value })}
           required
+          className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 focus:border-violet-400 focus:ring-violet-400/20"
         />
       </div>
 
       <div>
-        <Label htmlFor="about">About You *</Label>
+        <Label htmlFor="about" className="text-white font-medium">About You *</Label>
         <Textarea
           id="about"
           placeholder="Tell us about yourself, your experience, and what you're passionate about..."
@@ -34,19 +35,21 @@ export function PersonalDetailsStep({ formData, updateFormData }: PersonalDetail
           onChange={(e) => updateFormData({ about: e.target.value })}
           rows={4}
           required
+          className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 focus:border-violet-400 focus:ring-violet-400/20"
         />
       </div>
 
       <div>
-        <Label htmlFor="resume">Resume URL (Optional)</Label>
+        <Label htmlFor="resume" className="text-white font-medium">Resume URL (Optional)</Label>
         <Input
           id="resume"
           type="url"
           placeholder="https://example.com/your-resume.pdf"
           value={formData.resumeUrl}
           onChange={(e) => updateFormData({ resumeUrl: e.target.value })}
+          className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 focus:border-violet-400 focus:ring-violet-400/20"
         />
-        <p className="text-sm text-gray-500 mt-1">Link to your resume (Google Drive, Dropbox, or any public URL)</p>
+        <p className="text-sm text-gray-300 mt-1">Link to your resume (Google Drive, Dropbox, or any public URL)</p>
       </div>
     </div>
   )
