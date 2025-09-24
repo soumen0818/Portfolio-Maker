@@ -1,11 +1,12 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ArrowRight, Code, Palette, Zap, Github, Star, Users, Globe, CheckCircle, Sparkles } from "lucide-react"
+import { ArrowRight, Code, Palette, Zap, Star, Users, Globe, CheckCircle, Sparkles, Menu, X, Twitter, Linkedin, Mail, Heart, User as UserIcon, LogOut, Settings, ChevronDown } from "lucide-react"
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
@@ -15,32 +16,56 @@ export default function HomePage() {
   const [isVisible, setIsVisible] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [authError, setAuthError] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
   const router = useRouter()
   const supabase = createClient()
   const fullText = "Portfolio Generator"
 
   useEffect(() => {
-    // Check authentication status
+    // Check authentication status with better error handling
     const checkUser = async () => {
+      console.log('Checking user authentication...')
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        setUser(user)
+        const { data: { user }, error } = await supabase.auth.getUser()
+        console.log('Auth result - User:', user, 'Error:', error)
+        if (error) {
+          console.warn('Auth check failed:', error.message)
+          setAuthError(true)
+          setUser(null)
+        } else {
+          console.log('User state:', user ? 'Authenticated' : 'Not authenticated')
+          setUser(user)
+          setAuthError(false)
+        }
       } catch (error) {
-        console.error('Error checking user:', error)
+        console.warn('Network or connection error:', error)
+        setAuthError(true)
+        setUser(null)
       } finally {
         setLoading(false)
+        console.log('Auth check completed. Loading set to false.')
       }
     }
 
     checkUser()
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
+    // Listen for auth changes with error handling
+    try {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        console.log('Auth state changed:', event, 'User:', session?.user)
+        setUser(session?.user ?? null)
+        setAuthError(false)
+        setLoading(false)
+      })
 
-    return () => subscription.unsubscribe()
+      return () => subscription.unsubscribe()
+    } catch (error) {
+      console.warn('Auth listener setup failed:', error)
+      setAuthError(true)
+      setLoading(false)
+    }
   }, [supabase.auth])
 
   useEffect(() => {
@@ -60,14 +85,195 @@ export default function HomePage() {
 
   const handleCreatePortfolio = () => {
     if (user) {
+      // User is logged in, redirect to create page
+      console.log('User is logged in, redirecting to create page')
       router.push('/create')
     } else {
-      router.push('/auth/login')
+      // User is not logged in, redirect to sign-up
+      console.log('User not logged in, redirecting to sign-up page')
+      router.push('/auth/sign-up')
     }
+  }
+
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) {
+        console.error('Error logging out:', error)
+      } else {
+        setUser(null)
+        setProfileDropdownOpen(false)
+        router.push('/')
+      }
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+  }
+
+  // Function to get user avatar initials
+  const getUserInitials = (email: string) => {
+    return email.charAt(0).toUpperCase()
   }
 
   return (
     <div className="min-h-screen relative overflow-hidden">
+      {/* Navigation */}
+      <nav className="relative z-50 bg-white/80 backdrop-blur-md border-b border-white/20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            {/* Logo */}
+            <div className="flex items-center">
+              <Link href="/" className="flex items-center space-x-3">
+                <Image
+                  src="/AuraGen logo.png"
+                  alt="AuraGen Logo"
+                  width={32}
+                  height={32}
+                  className="w-8 h-8 object-contain"
+                />
+                <span className="text-xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
+                  AuraGen
+                </span>
+              </Link>
+            </div>
+
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center space-x-4">
+              {user ? (
+                /* Profile Dropdown for logged in users */
+                <div className="relative">
+                  <Button
+                    variant="ghost"
+                    onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                    className="flex items-center space-x-2 bg-white/50 hover:bg-white/70 px-3 py-2"
+                  >
+                    <div className="w-8 h-8 bg-gradient-to-r from-violet-600 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                      {user.email ? getUserInitials(user.email) : <UserIcon className="w-4 h-4" />}
+                    </div>
+                    <span className="text-sm text-gray-700 max-w-32 truncate">{user.email}</span>
+                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                  </Button>
+
+                  {/* Profile Dropdown Menu */}
+                  {profileDropdownOpen && (
+                    <div className="absolute right-0 mt-2 w-64 bg-white/95 backdrop-blur-md border border-white/30 rounded-lg shadow-lg z-50">
+                      <div className="p-4 border-b border-gray-200/50">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-gradient-to-r from-violet-600 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">
+                            {user.email ? getUserInitials(user.email) : <UserIcon className="w-5 h-5" />}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{user.email}</p>
+                            <p className="text-xs text-gray-500">Portfolio Creator</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="py-2">
+                        <Link
+                          href="/protected"
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100/50 transition-colors"
+                          onClick={() => setProfileDropdownOpen(false)}
+                        >
+                          <Settings className="w-4 h-4 mr-3" />
+                          Dashboard
+                        </Link>
+                        <button
+                          onClick={handleLogout}
+                          className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50/50 transition-colors"
+                        >
+                          <LogOut className="w-4 h-4 mr-3" />
+                          Logout
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Auth buttons for non-logged in users */
+                <>
+                  <Link href="/auth/sign-up">
+                    <Button variant="outline" size="sm" className="bg-white/50 border-white/30 hover:bg-white/70">
+                      Sign Up
+                    </Button>
+                  </Link>
+                  <Link href="/auth/login">
+                    <Button size="sm" className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700">
+                      Sign In
+                    </Button>
+                  </Link>
+                </>
+              )}
+            </div>
+
+            {/* Mobile menu button */}
+            <div className="md:hidden">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="text-gray-700"
+              >
+                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </Button>
+            </div>
+          </div>
+
+          {/* Mobile Navigation */}
+          {mobileMenuOpen && (
+            <div className="md:hidden">
+              <div className="px-2 pt-2 pb-3 space-y-1 bg-white/90 backdrop-blur-md rounded-lg mt-2 border border-white/20">
+                {user ? (
+                  /* Profile section for logged in users */
+                  <>
+                    <div className="flex items-center space-x-3 p-3 border-b border-gray-200/50">
+                      <div className="w-10 h-10 bg-gradient-to-r from-violet-600 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">
+                        {user.email ? getUserInitials(user.email) : <UserIcon className="w-5 h-5" />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{user.email}</p>
+                        <p className="text-xs text-gray-500">Portfolio Creator</p>
+                      </div>
+                    </div>
+                    <Link href="/protected" className="block" onClick={() => setMobileMenuOpen(false)}>
+                      <Button variant="ghost" size="sm" className="w-full justify-start">
+                        <Settings className="w-4 h-4 mr-3" />
+                        Dashboard
+                      </Button>
+                    </Link>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        handleLogout()
+                        setMobileMenuOpen(false)
+                      }}
+                      className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50/50"
+                    >
+                      <LogOut className="w-4 h-4 mr-3" />
+                      Logout
+                    </Button>
+                  </>
+                ) : (
+                  /* Auth buttons for non-logged in users */
+                  <>
+                    <Link href="/auth/sign-up" className="block">
+                      <Button variant="outline" size="sm" className="w-full bg-white/50 border-white/30 hover:bg-white/70">
+                        Sign Up
+                      </Button>
+                    </Link>
+                    <Link href="/auth/login" className="block">
+                      <Button size="sm" className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700">
+                        Sign In
+                      </Button>
+                    </Link>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </nav>
+
       {/* Animated Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-violet-100 via-indigo-50 to-cyan-100">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(99,102,241,0.1),transparent_70%)]" />
@@ -160,12 +366,12 @@ export default function HomePage() {
                   </div>
                   <CardTitle className="text-xl text-gray-900">Smart Integration</CardTitle>
                   <CardDescription className="text-gray-600">
-                    Automatically sync with GitHub
+                    Intelligent portfolio building
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <p className="text-gray-600 text-center">
-                    Connect your GitHub account and we'll automatically pull your repositories, contributions, and stats to create a comprehensive portfolio.
+                    Our smart system helps you create a comprehensive portfolio with your personal details, projects, and skills in a beautiful format.
                   </p>
                 </CardContent>
               </Card>
@@ -231,10 +437,9 @@ export default function HomePage() {
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900 mb-4">Connect & Configure</h3>
                 <p className="text-gray-600 mb-6">
-                  Link your GitHub account and add your personal details, tech stack, and project information.
+                  Add your personal details, tech stack, and project information to create your professional portfolio.
                 </p>
                 <div className="flex justify-center space-x-2">
-                  <Badge variant="secondary">GitHub</Badge>
                   <Badge variant="secondary">Personal Info</Badge>
                   <Badge variant="secondary">Projects</Badge>
                 </div>
@@ -320,14 +525,87 @@ export default function HomePage() {
                     <span>50K+ Users</span>
                   </div>
                   <div className="flex items-center">
-                    <Github className="w-4 h-4 mr-1" />
-                    <span>Open Source</span>
+                    <Code className="w-4 h-4 mr-1" />
+                    <span>Developer Friendly</span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
         </section>
+
+        {/* Footer */}
+        <footer className="py-12 px-4 bg-white/20 backdrop-blur-sm border-t border-white/30">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid md:grid-cols-4 gap-8 mb-8">
+              {/* Company Info */}
+              <div className="md:col-span-2">
+                <div className="flex items-center space-x-2 mb-4">
+                  <div className="w-8 h-8 bg-gradient-to-r from-violet-600 to-purple-600 rounded-lg flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="text-xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
+                    AuraGen
+                  </span>
+                </div>
+                <p className="text-gray-600 mb-4 max-w-md">
+                  Create stunning developer portfolios in minutes. Transform your coding journey into a professional showcase that stands out.
+                </p>
+                <div className="flex space-x-4">
+                  <a href="#" className="text-gray-500 hover:text-violet-600 transition-colors">
+                    <Twitter className="w-5 h-5" />
+                  </a>
+                  <a href="#" className="text-gray-500 hover:text-violet-600 transition-colors">
+                    <Linkedin className="w-5 h-5" />
+                  </a>
+                  <a href="mailto:contact@auragen.dev" className="text-gray-500 hover:text-violet-600 transition-colors">
+                    <Mail className="w-5 h-5" />
+                  </a>
+                </div>
+              </div>
+
+              {/* Product Links */}
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-4">Product</h3>
+                <ul className="space-y-2">
+                  <li><a href="#" className="text-gray-600 hover:text-violet-600 transition-colors">Templates</a></li>
+                  <li><a href="#" className="text-gray-600 hover:text-violet-600 transition-colors">Features</a></li>
+                  <li><a href="#" className="text-gray-600 hover:text-violet-600 transition-colors">Pricing</a></li>
+                  <li><a href="#" className="text-gray-600 hover:text-violet-600 transition-colors">Examples</a></li>
+                </ul>
+              </div>
+
+              {/* Support Links */}
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-4">Support</h3>
+                <ul className="space-y-2">
+                  <li><a href="#" className="text-gray-600 hover:text-violet-600 transition-colors">Help Center</a></li>
+                  <li><a href="#" className="text-gray-600 hover:text-violet-600 transition-colors">Documentation</a></li>
+                  <li><a href="#" className="text-gray-600 hover:text-violet-600 transition-colors">Contact Us</a></li>
+                  <li><a href="#" className="text-gray-600 hover:text-violet-600 transition-colors">Community</a></li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Bottom Bar */}
+            <div className="pt-8 border-t border-white/30">
+              <div className="flex flex-col md:flex-row justify-between items-center">
+                <div className="text-gray-600 text-sm mb-4 md:mb-0">
+                  © 2025 AuraGen. All rights reserved.
+                </div>
+                <div className="flex items-center text-gray-600 text-sm">
+                  <span>Made with</span>
+                  <Heart className="w-4 h-4 mx-1 text-red-500 fill-current" />
+                  <span>by developers, for developers</span>
+                </div>
+                <div className="flex space-x-6 text-sm text-gray-600 mt-4 md:mt-0">
+                  <a href="#" className="hover:text-violet-600 transition-colors">Privacy Policy</a>
+                  <a href="#" className="hover:text-violet-600 transition-colors">Terms of Service</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </footer>
       </div>
     </div>
   )
