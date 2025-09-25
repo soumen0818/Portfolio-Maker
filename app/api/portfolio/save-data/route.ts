@@ -38,17 +38,38 @@ export async function POST(request: NextRequest) {
     switch (step) {
       case "personal":
         // Save user profile data
-        const { error: userError } = await supabase.from("users").upsert({
-          id: user.id,
-          name: data.name,
-          about: data.about,
-          resume_url: data.resumeUrl,
-          github_username: data.githubUsername,
-          updated_at: new Date().toISOString(),
-        })
+        try {
+          const { error: userError } = await supabase.from("users").upsert({
+            id: user.id,
+            name: data.name,
+            about: data.about,
+            domain: data.domain || null,
+            location: data.location || null,
+            resume_url: data.resumeUrl || null,
+            profile_photo: data.profilePhoto || null,
+            updated_at: new Date().toISOString(),
+          })
 
-        if (userError) {
-          throw new Error(`Failed to save user data: ${userError.message}`)
+          if (userError) {
+            console.error("Database error:", userError)
+            throw new Error(`Failed to save user data: ${userError.message}`)
+          }
+        } catch (dbError) {
+          console.error("Personal data save error:", dbError)
+          // If columns don't exist, try without the new columns
+          const { error: fallbackError } = await supabase.from("users").upsert({
+            id: user.id,
+            name: data.name,
+            about: data.about,
+            resume_url: data.resumeUrl || null,
+            updated_at: new Date().toISOString(),
+          })
+
+          if (fallbackError) {
+            throw new Error(`Failed to save user data (fallback): ${fallbackError.message}`)
+          }
+
+          console.warn("Saved without new columns - database migration needed")
         }
         break
 
@@ -58,11 +79,11 @@ export async function POST(request: NextRequest) {
 
         if (data.techStack && data.techStack.length > 0) {
           const { error: techError } = await supabase.from("tech_stacks").insert(
-            data.techStack.map((tech: any) => ({
+            data.techStack.map((tech: string) => ({
               user_id: user.id,
-              name: tech.technology || tech.name,
-              category: tech.category,
-              proficiency_level: convertProficiencyToNumber(tech.proficiency || tech.proficiency_level),
+              name: tech,
+              category: "General", // Default category since we're not using categories anymore
+              proficiency_level: 2, // Default to intermediate
             })),
           )
 
