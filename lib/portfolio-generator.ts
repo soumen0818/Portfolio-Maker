@@ -16,18 +16,14 @@ export interface PortfolioData {
     id: string
     name: string
     about: string
+    domain: string
+    location: string
     resumeUrl?: string
-    githubUsername?: string
-  }
-  githubData?: {
-    profile: any
-    repos: any[]
-    contributions: any[]
+    profilePhoto?: string
   }
   techStack: Array<{
     technology: string
     category: string
-    proficiency: string
   }>
   projects: Array<{
     title: string
@@ -181,38 +177,21 @@ export class PortfolioGenerator {
         console.warn("Failed to fetch contact details:", contactError.message)
       }
 
-      // Fetch GitHub data
-      const { data: githubData, error: githubError } = await this.supabase
-        .from("github_data")
-        .select("*")
-        .eq("user_id", userId)
-        .single()
-
-      if (githubError) {
-        console.warn("Failed to fetch GitHub data:", githubError.message)
-      }
-
       return {
         user: {
           id: user.id,
           name: user.name,
           about: user.about,
+          domain: user.domain || '',
+          location: user.location || '',
           resumeUrl: user.resume_url,
-          githubUsername: user.github_username,
+          profilePhoto: user.profile_photo,
         },
-        githubData: githubData
-          ? {
-              profile: githubData.profile_data,
-              repos: githubData.pinned_repos || [],
-              contributions: githubData.contribution_data || [],
-            }
-          : undefined,
-        techStack: (techStack || []).map((tech) => ({
+        techStack: (techStack || []).map((tech: any) => ({
           technology: tech.name,
-          category: tech.category,
-          proficiency: this.mapProficiencyLevel(tech.proficiency_level),
+          category: tech.category || 'Other'
         })),
-        projects: (projects || []).map((project) => ({
+        projects: (projects || []).map((project: any) => ({
           title: project.title,
           description: project.description,
           githubUrl: project.github_url,
