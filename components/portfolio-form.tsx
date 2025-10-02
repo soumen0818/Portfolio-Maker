@@ -14,6 +14,9 @@ import { useRouter } from "next/navigation"
 
 interface PortfolioFormProps {
   userId: string
+  existingData?: any
+  portfolioId?: string
+  isEditing?: boolean
 }
 
 export interface FormData {
@@ -41,27 +44,29 @@ const steps = [
   { id: 4, title: "Contact Details", component: ContactDetailsStep, key: "contact" },
 ]
 
-export function PortfolioForm({ userId }: PortfolioFormProps) {
+export function PortfolioForm({ userId, existingData, portfolioId, isEditing = false }: PortfolioFormProps) {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [selectedTemplate, setSelectedTemplate] = useState<string>("minimal-dark")
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Initialize form data with existing data if editing
   const [formData, setFormData] = useState<FormData>({
-    name: "",
-    about: "",
-    domain: "",
-    location: "",
-    resumeUrl: "",
-    profilePhoto: "",
-    techStack: [],
-    projects: [],
+    name: existingData?.user?.name || "",
+    about: existingData?.user?.about || "",
+    domain: existingData?.user?.domain || "",
+    location: existingData?.user?.location || "",
+    resumeUrl: existingData?.user?.resumeUrl || "",
+    profilePhoto: existingData?.user?.profilePhoto || "",
+    techStack: existingData?.techStack?.map((tech: any) => tech.technology || tech) || [],
+    projects: existingData?.projects || [],
     contactDetails: {
-      linkedin: "",
-      github: "",
-      email: "",
-      twitter: "",
-      instagram: "",
+      linkedin: existingData?.contactDetails?.linkedin || "",
+      github: existingData?.contactDetails?.github || "",
+      email: existingData?.contactDetails?.email || "",
+      twitter: existingData?.contactDetails?.twitter || "",
+      instagram: existingData?.contactDetails?.instagram || "",
     },
   })
 
@@ -126,28 +131,38 @@ export function PortfolioForm({ userId }: PortfolioFormProps) {
       // Save contact details first
       await saveStepData("contact")
 
-      // Generate portfolio
-      const response = await fetch("/api/portfolio/generate", {
+      // Determine if we're updating or creating
+      const endpoint = isEditing ? "/api/portfolio/update" : "/api/portfolio/generate"
+      const requestBody = isEditing
+        ? {
+          portfolioId,
+          templateId: selectedTemplate,
+        }
+        : {
+          templateId: selectedTemplate,
+        }
+
+      // Generate or update portfolio
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          templateId: selectedTemplate,
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.message || "Failed to generate portfolio")
+        throw new Error(error.message || `Failed to ${isEditing ? 'update' : 'generate'} portfolio`)
       }
 
       const result = await response.json()
 
-      // Redirect to preview page
-      router.push(`/portfolio/preview/${result.portfolio.id}`)
+      // Redirect to preview page with the portfolio ID
+      const portfolioIdToUse = isEditing ? portfolioId : result.portfolio.id
+      router.push(`/portfolio/preview/${portfolioIdToUse}`)
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to generate portfolio")
+      setError(error instanceof Error ? error.message : `Failed to ${isEditing ? 'update' : 'generate'} portfolio`)
     } finally {
       setIsGenerating(false)
     }
@@ -302,7 +317,7 @@ export function PortfolioForm({ userId }: PortfolioFormProps) {
             ) : (
               <>
                 <Sparkles className="w-5 h-5 mr-2" />
-                Generate Portfolio
+                {isEditing ? 'Update Portfolio' : 'Generate Portfolio'}
               </>
             )}
           </Button>
