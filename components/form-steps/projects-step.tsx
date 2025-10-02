@@ -44,7 +44,7 @@ export function ProjectsStep({ formData, updateFormData }: ProjectsStepProps) {
   }
 
   const addProject = () => {
-    if (!newProject.title || !newProject.description) return
+    if (!newProject.title || !newProject.description || formData.projects.length >= 4) return
 
     const updatedProjects = [...formData.projects, newProject]
     updateFormData({ projects: updatedProjects })
@@ -67,9 +67,23 @@ export function ProjectsStep({ formData, updateFormData }: ProjectsStepProps) {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Add New Project</CardTitle>
+          <CardTitle className="text-lg">
+            Add New Project ({formData.projects.length}/4)
+            {formData.projects.length >= 4 && (
+              <span className="text-sm font-normal text-yellow-600 ml-2">
+                Maximum projects reached
+              </span>
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {formData.projects.length >= 4 && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <p className="text-yellow-800 text-sm">
+                You have reached the maximum limit of 4 projects. Remove a project to add a new one.
+              </p>
+            </div>
+          )}
           <div>
             <Label htmlFor="project-title">Project Title *</Label>
             <Input
@@ -77,6 +91,7 @@ export function ProjectsStep({ formData, updateFormData }: ProjectsStepProps) {
               placeholder="Enter project title"
               value={newProject.title}
               onChange={(e) => setNewProject((prev) => ({ ...prev, title: e.target.value }))}
+              disabled={formData.projects.length >= 4}
             />
           </div>
 
@@ -88,6 +103,7 @@ export function ProjectsStep({ formData, updateFormData }: ProjectsStepProps) {
               value={newProject.description}
               onChange={(e) => setNewProject((prev) => ({ ...prev, description: e.target.value }))}
               rows={3}
+              disabled={formData.projects.length >= 4}
             />
           </div>
 
@@ -100,6 +116,7 @@ export function ProjectsStep({ formData, updateFormData }: ProjectsStepProps) {
                 placeholder="https://github.com/username/repo"
                 value={newProject.githubUrl}
                 onChange={(e) => setNewProject((prev) => ({ ...prev, githubUrl: e.target.value }))}
+                disabled={formData.projects.length >= 4}
               />
             </div>
 
@@ -111,6 +128,7 @@ export function ProjectsStep({ formData, updateFormData }: ProjectsStepProps) {
                 placeholder="https://your-project.com"
                 value={newProject.liveUrl}
                 onChange={(e) => setNewProject((prev) => ({ ...prev, liveUrl: e.target.value }))}
+                disabled={formData.projects.length >= 4}
               />
             </div>
           </div>
@@ -123,8 +141,14 @@ export function ProjectsStep({ formData, updateFormData }: ProjectsStepProps) {
                 value={newTechnology}
                 onChange={(e) => setNewTechnology(e.target.value)}
                 onKeyPress={(e) => e.key === "Enter" && addTechnology()}
+                disabled={formData.projects.length >= 4}
               />
-              <Button type="button" onClick={addTechnology} size="sm">
+              <Button
+                type="button"
+                onClick={addTechnology}
+                size="sm"
+                disabled={formData.projects.length >= 4}
+              >
                 <Plus size={16} />
               </Button>
             </div>
@@ -145,17 +169,17 @@ export function ProjectsStep({ formData, updateFormData }: ProjectsStepProps) {
           <Button
             type="button"
             onClick={addProject}
-            disabled={!newProject.title || !newProject.description}
+            disabled={!newProject.title || !newProject.description || formData.projects.length >= 4}
             className="w-full"
           >
-            Add Project
+            {formData.projects.length >= 4 ? 'Maximum Projects Reached (4/4)' : 'Add Project'}
           </Button>
         </CardContent>
       </Card>
 
       {formData.projects.length > 0 && (
         <div>
-          <Label className="text-lg">Your Projects ({formData.projects.length})</Label>
+          <Label className="text-lg">Your Projects ({formData.projects.length}/4)</Label>
           <div className="space-y-4 mt-2">
             {formData.projects.map((project, index) => (
               <Card key={index}>
