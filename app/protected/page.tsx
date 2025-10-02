@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Plus, Eye, Calendar, Globe } from "lucide-react"
+import { Plus, Eye, Calendar, Globe, Edit } from "lucide-react"
 import Link from "next/link"
 import { DeletePortfolioButton } from "@/components/delete-portfolio-button"
 import { Navbar } from "@/components/navbar"
@@ -88,30 +88,9 @@ export default async function ProtectedPage() {
             </div>
 
             <div className="grid gap-6">
-              {/* Create New Portfolio Button */}
-              <Card className="bg-white/10 backdrop-blur-md border-white/20">
-                <CardHeader>
-                  <CardTitle className="text-white">Create New Portfolio</CardTitle>
-                  <CardDescription className="text-gray-300">Build a new developer portfolio to showcase your work</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Link href="/create">
-                    <Button className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Create Portfolio
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-
-              {/* User's Portfolios */}
+              {/* User's Portfolio */}
               {portfolios && portfolios.length > 0 ? (
                 <>
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-bold text-white">Your Portfolios</h2>
-                    <span className="text-sm text-gray-300">{portfolios.length} portfolio{portfolios.length > 1 ? 's' : ''}</span>
-                  </div>
-
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {portfolios.map((portfolio) => (
                       <Card key={portfolio.id} className="hover:shadow-lg transition-shadow bg-white/10 backdrop-blur-md border-white/20">
@@ -156,6 +135,14 @@ export default async function ProtectedPage() {
                                   View
                                 </Button>
                               </Link>
+                              <Link href={`/edit/${portfolio.id}`} className="flex-1">
+                                <Button size="sm" variant="outline" className="w-full">
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Edit
+                                </Button>
+                              </Link>
+                            </div>
+                            <div className="flex gap-2">
                               <div className="flex-1">
                                 <DeletePortfolioButton portfolioId={portfolio.id} />
                               </div>
@@ -175,44 +162,19 @@ export default async function ProtectedPage() {
               ) : (
                 <Card className="bg-white/10 backdrop-blur-md border-white/20">
                   <CardHeader>
-                    <CardTitle className="text-white">No Portfolios Yet</CardTitle>
-                    <CardDescription className="text-gray-300">Get started by creating your first developer portfolio</CardDescription>
+                    <CardTitle className="text-white">No Portfolio Yet</CardTitle>
+                    <CardDescription className="text-gray-300">Get started by creating your developer portfolio</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <Link href="/create">
                       <Button className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700">
                         <Plus className="w-4 h-4 mr-2" />
-                        Create Your First Portfolio
+                        Create Your Portfolio
                       </Button>
                     </Link>
                   </CardContent>
                 </Card>
               )}
-
-              {/* Quick Stats */}
-              <Card className="bg-white/10 backdrop-blur-md border-white/20">
-                <CardHeader>
-                  <CardTitle className="text-white">Quick Stats</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                    <div>
-                      <div className="text-2xl font-bold text-blue-400">{portfolios?.length || 0}</div>
-                      <div className="text-sm text-gray-300">Portfolios Created</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-green-400">
-                        {portfolios?.filter(p => p.is_published).length || 0}
-                      </div>
-                      <div className="text-sm text-gray-300">Published</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-bold text-purple-400">0</div>
-                      <div className="text-sm text-gray-300">Views This Month</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           </div>
         </div>
