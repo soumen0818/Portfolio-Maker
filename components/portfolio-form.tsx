@@ -5,13 +5,11 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, CheckCircle } from "lucide-react"
-import { GitHubStep } from "./form-steps/github-step"
+import { Loader2, CheckCircle, Sparkles } from "lucide-react"
 import { PersonalDetailsStep } from "./form-steps/personal-details-step"
 import { TechStackStep } from "./form-steps/tech-stack-step"
 import { ProjectsStep } from "./form-steps/projects-step"
 import { ContactDetailsStep } from "./form-steps/contact-details-step"
-import { TemplateSelector } from "./template-selector"
 import { useRouter } from "next/navigation"
 
 interface PortfolioFormProps {
@@ -19,11 +17,13 @@ interface PortfolioFormProps {
 }
 
 export interface FormData {
-  githubUsername: string
   name: string
   about: string
+  domain: string
+  location: string
   resumeUrl: string
-  techStack: Array<{ technology: string; category: string; proficiency: string }>
+  profilePhoto: string
+  techStack: string[]
   projects: Array<{ title: string; description: string; githubUrl: string; liveUrl: string; technologies: string[] }>
   contactDetails: {
     linkedin: string
@@ -35,25 +35,25 @@ export interface FormData {
 }
 
 const steps = [
-  { id: 1, title: "GitHub Username", component: GitHubStep, key: "github" },
-  { id: 2, title: "Personal Details", component: PersonalDetailsStep, key: "personal" },
-  { id: 3, title: "Tech Stack", component: TechStackStep, key: "techstack" },
-  { id: 4, title: "Projects", component: ProjectsStep, key: "projects" },
-  { id: 5, title: "Contact Details", component: ContactDetailsStep, key: "contact" },
-  { id: 6, title: "Choose Template", component: null, key: "template" },
+  { id: 1, title: "Personal Details", component: PersonalDetailsStep, key: "personal" },
+  { id: 2, title: "Tech Stack", component: TechStackStep, key: "techstack" },
+  { id: 3, title: "Projects", component: ProjectsStep, key: "projects" },
+  { id: 4, title: "Contact Details", component: ContactDetailsStep, key: "contact" },
 ]
 
 export function PortfolioForm({ userId }: PortfolioFormProps) {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
-  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("minimal-dark")
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState<FormData>({
-    githubUsername: "",
     name: "",
     about: "",
+    domain: "",
+    location: "",
     resumeUrl: "",
+    profilePhoto: "",
     techStack: [],
     projects: [],
     contactDetails: {
@@ -74,7 +74,7 @@ export function PortfolioForm({ userId }: PortfolioFormProps) {
     // Save current step data before moving to next
     if (currentStep < steps.length) {
       const currentStepKey = steps[currentStep - 1].key
-      if (currentStepKey !== "github" && currentStepKey !== "template") {
+      if (currentStepKey !== "template") {
         try {
           await saveStepData(currentStepKey)
         } catch (error) {
@@ -102,7 +102,6 @@ export function PortfolioForm({ userId }: PortfolioFormProps) {
         step,
         data: {
           ...formData,
-          githubUsername: formData.githubUsername,
         },
       }),
     })
@@ -118,10 +117,7 @@ export function PortfolioForm({ userId }: PortfolioFormProps) {
   }
 
   const handleGeneratePortfolio = async () => {
-    if (!selectedTemplate) {
-      setError("Please select a template")
-      return
-    }
+    // Template is automatically set to minimal-dark
 
     setIsGenerating(true)
     setError(null)
@@ -158,36 +154,74 @@ export function PortfolioForm({ userId }: PortfolioFormProps) {
   }
 
   const isLastStep = currentStep === steps.length
-  const canProceed = currentStep === steps.length ? selectedTemplate : true
+  const canProceed = true // Always can proceed since we have default template
 
   return (
-    <div className="max-w-2xl mx-auto">
-      {/* Progress Bar */}
-      <div className="mb-8">
-        <div className="flex justify-between text-sm text-gray-600 mb-2">
-          <span>
-            Step {currentStep} of {steps.length}
-          </span>
-          <span>{Math.round(progress)}% Complete</span>
+    <div className="max-w-4xl mx-auto pb-8">
+      {/* Progress Section */}
+      <div className="mb-10">
+        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 shadow-2xl">
+          <div className="flex justify-between items-center text-sm text-gray-300 mb-4">
+            <span className="font-medium">
+              Step {currentStep} of {steps.length}
+            </span>
+            <span className="bg-violet-600/20 px-3 py-1 rounded-full text-violet-300 font-medium">
+              {Math.round(progress)}% Complete
+            </span>
+          </div>
+
+          {/* Animated Progress Bar */}
+          <div className="relative">
+            <div className="w-full bg-gray-700/50 rounded-full h-3 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600 rounded-full transition-all duration-700 ease-out relative"
+                style={{ width: `${progress}%` }}
+              >
+                <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+              </div>
+            </div>
+          </div>
         </div>
-        <Progress value={progress} className="h-2" />
       </div>
 
-      {/* Step Navigation */}
-      <div className="flex justify-center mb-8">
-        <div className="flex space-x-2">
-          {steps.map((step) => (
-            <div
-              key={step.id}
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                step.id === currentStep
-                  ? "bg-blue-600 text-white"
+      {/* Step Navigation Dots */}
+      <div className="flex justify-center mb-10">
+        <div className="flex space-x-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-6 py-4 shadow-xl">
+          {steps.map((step, index) => (
+            <div key={step.id} className="relative group">
+              <div
+                className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300 transform hover:scale-110 ${step.id === currentStep
+                  ? "bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-500/50 scale-110"
                   : step.id < currentStep
-                    ? "bg-green-600 text-white"
-                    : "bg-gray-200 text-gray-600"
-              }`}
-            >
-              {step.id < currentStep ? <CheckCircle className="w-4 h-4" /> : step.id}
+                    ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg shadow-green-500/30"
+                    : "bg-gray-700/50 text-gray-400 hover:bg-gray-600/50"
+                  }`}
+              >
+                {step.id < currentStep ? (
+                  <CheckCircle className="w-6 h-6 animate-bounce" />
+                ) : (
+                  <span className="transition-transform duration-300">
+                    {step.id}
+                  </span>
+                )}
+              </div>
+
+              {/* Step connector line */}
+              {index < steps.length - 1 && (
+                <div
+                  className={`absolute top-6 left-12 w-8 h-0.5 transition-all duration-500 ${step.id < currentStep
+                    ? "bg-gradient-to-r from-green-500 to-emerald-500"
+                    : "bg-gray-700/50"
+                    }`}
+                ></div>
+              )}
+
+              {/* Tooltip */}
+              <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className="bg-gray-900/90 text-white text-xs px-3 py-1 rounded-lg whitespace-nowrap border border-gray-700">
+                  {step.title}
+                </div>
+              </div>
             </div>
           ))}
         </div>
@@ -195,47 +229,93 @@ export function PortfolioForm({ userId }: PortfolioFormProps) {
 
       {/* Error Alert */}
       {error && (
-        <Alert className="mb-6" variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <div className="mb-8 animate-pulse">
+          <Alert className="bg-red-900/20 border-red-500/50 backdrop-blur-md" variant="destructive">
+            <AlertDescription className="text-red-300">{error}</AlertDescription>
+          </Alert>
+        </div>
       )}
 
-      {/* Current Step */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{steps.find((step) => step.id === currentStep)?.title}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {currentStep === 6 ? (
-            <TemplateSelector selectedTemplate={selectedTemplate} onTemplateSelect={setSelectedTemplate} />
-          ) : (
-            CurrentStepComponent && (
+      {/* Current Step Card */}
+      <div className="mb-8 opacity-0 translate-y-7 animate-[fadeInUp_0.6s_ease-out_both]">
+        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl overflow-hidden transform transition-all duration-500 hover:shadow-violet-500/10">
+          {/* Card Header */}
+          <div className="bg-gradient-to-r from-violet-600/20 to-purple-600/20 p-6 border-b border-white/20">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-gradient-to-r from-violet-600 to-purple-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold">{currentStep}</span>
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-white">
+                  {steps.find((step) => step.id === currentStep)?.title}
+                </h2>
+                <p className="text-gray-300 text-sm">
+                  {currentStep === 1 && "Tell us about yourself and your developer journey"}
+                  {currentStep === 2 && "Showcase your technical skills and expertise"}
+                  {currentStep === 3 && "Highlight your best 4 projects and achievements"}
+                  {currentStep === 4 && "Make it easy for others to connect with you"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Card Content */}
+          <div className="p-8">
+            {CurrentStepComponent && (
               <CurrentStepComponent formData={formData} updateFormData={updateFormData} userId={userId} />
-            )
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Navigation Buttons */}
-      <div className="flex justify-between mt-6">
-        <Button variant="outline" onClick={handlePrevious} disabled={currentStep === 1}>
+      <div className="flex justify-between items-center pt-4">
+        <Button
+          variant="outline"
+          onClick={handlePrevious}
+          disabled={currentStep === 1}
+          className="bg-white/10 border-white/30 text-white hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed px-8 py-3 rounded-xl transition-all duration-300 hover:scale-105 disabled:hover:scale-100"
+        >
+          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
           Previous
         </Button>
 
+        <div className="flex-1 flex justify-center">
+          <div className="text-sm text-gray-300 font-medium">
+            Step {currentStep} of {steps.length}
+          </div>
+        </div>
+
         {isLastStep ? (
-          <Button onClick={handleGeneratePortfolio} disabled={!canProceed || isGenerating} className="min-w-[140px]">
+          <Button
+            onClick={handleGeneratePortfolio}
+            disabled={!canProceed || isGenerating}
+            className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white px-8 py-3 rounded-xl shadow-lg shadow-violet-500/30 transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 min-w-[180px]"
+          >
             {isGenerating ? (
               <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Generating...
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                <span className="animate-pulse">Generating...</span>
               </>
             ) : (
-              "Generate Portfolio"
+              <>
+                <Sparkles className="w-5 h-5 mr-2" />
+                Generate Portfolio
+              </>
             )}
           </Button>
         ) : (
-          <Button onClick={handleNext} disabled={!canProceed}>
-            Next
+          <Button
+            onClick={handleNext}
+            disabled={!canProceed}
+            className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white px-8 py-3 rounded-xl shadow-lg shadow-violet-500/30 transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+          >
+            Next Step
+            <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
           </Button>
         )}
       </div>
