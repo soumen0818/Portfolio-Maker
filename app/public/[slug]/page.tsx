@@ -1,54 +1,57 @@
 import { redirect, notFound } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { PortfolioGenerator } from "@/lib/portfolio-generator"
 import { TemplateRenderer } from "@/components/template-renderer"
 
 interface PublicPortfolioProps {
-    params: { slug: string }
+    params: Promise<{ slug: string }>
 }
 
 export default async function PublicPortfolio({ params }: PublicPortfolioProps) {
+    const { slug } = await params
     const supabase = await createClient()
 
     try {
-        // Find portfolio by slug
-        const { data: portfolio, error } = await supabase
+        // Find portfolio by slug to get the user_id
+        const { data: portfolioRecord, error: portfolioError } = await supabase
             .from('portfolios')
             .select(`
-        *,
-        users!portfolios_user_id_fkey (
-          name,
-          github_username
-        )
-      `)
-            .eq('slug', params.slug)
+                user_id,
+                template_id,
+                is_published,
+                users!portfolios_user_id_fkey (
+                    name,
+                    github_username
+                )
+            `)
+            .eq('slug', slug)
             .eq('is_published', true)
             .single()
 
-        if (error || !portfolio) {
+        if (portfolioError || !portfolioRecord) {
             notFound()
         }
 
-        // Generate portfolio data structure expected by TemplateRenderer
-        const portfolioData = {
-            user: {
-                id: portfolio.user_id,
-                name: portfolio.users?.name || "Portfolio Owner",
-                about: "Welcome to my portfolio",
-                githubUsername: portfolio.users?.github_username || ""
-            },
-            projects: [],
-            techStack: [],
-            contactDetails: {},
-            githubData: null,
-            ...portfolio.data
+        // Use PortfolioGenerator to get complete portfolio data
+        const generator = new PortfolioGenerator(supabase)
+        const portfolio = await generator.getPortfolio(portfolioRecord.user_id)
+
+        if (!portfolio) {
+            notFound()
         }
 
         return (
             <div className="min-h-screen">
                 {/* Public Portfolio Content */}
                 <TemplateRenderer
-                    templateId={portfolio.template_id || "minimal-dark"}
-                    data={portfolioData}
+                    templateId={portfolioRecord.template_id || "minimal-dark"}
+                    data={{
+                        user: portfolio.data.user,
+                        techStack: portfolio.data.techStack,
+                        projects: portfolio.data.projects,
+                        contactDetails: portfolio.data.contactDetails,
+                        githubData: null // GitHub data not available in public view
+                    }}
                 />
 
                 {/* Powered by footer */}
@@ -73,31 +76,41 @@ export default async function PublicPortfolio({ params }: PublicPortfolioProps) 
 
 // Generate metadata for SEO
 export async function generateMetadata({ params }: PublicPortfolioProps) {
+    const { slug } = await params
     const supabase = await createClient()
 
     try {
-        const { data: portfolio } = await supabase
+        // Find portfolio by slug to get the user_id
+        const { data: portfolioRecord } = await supabase
             .from('portfolios')
             .select(`
-        *,
-        users!portfolios_user_id_fkey (
-          name,
-          github_username
-        )
-      `)
-            .eq('slug', params.slug)
+                user_id,
+                users!portfolios_user_id_fkey (
+                    name,
+                    github_username
+                )
+            `)
+            .eq('slug', slug)
             .eq('is_published', true)
             .single()
 
-        if (portfolio) {
-            const userName = portfolio.users?.name || "Portfolio Owner"
-            return {
-                title: `${userName} - Portfolio`,
-                description: `Check out ${userName}'s professional portfolio`,
-                openGraph: {
+        if (portfolioRecord) {
+            // Get complete portfolio data
+            const generator = new PortfolioGenerator(supabase)
+            const portfolio = await generator.getPortfolio(portfolioRecord.user_id)
+
+            if (portfolio) {
+                const userName = portfolio.data.user.name || "Portfolio Owner"
+                const userAbout = portfolio.data.user.about || `Check out ${userName}'s professional portfolio`
+
+                return {
                     title: `${userName} - Portfolio`,
-                    description: `Check out ${userName}'s professional portfolio`,
-                    type: 'website',
+                    description: userAbout,
+                    openGraph: {
+                        title: `${userName} - Portfolio`,
+                        description: userAbout,
+                        type: 'website',
+                    }
                 }
             }
         }
