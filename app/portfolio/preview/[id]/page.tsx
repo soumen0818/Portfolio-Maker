@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation"
+import { revalidatePath } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { PortfolioGenerator } from "@/lib/portfolio-generator"
 import { TemplateRenderer } from "@/components/template-renderer"
@@ -49,8 +50,8 @@ export default async function PreviewPage({ params }: PreviewPageProps) {
         .eq('user_id', user.id)
 
       if (!error) {
-        // Redirect to refresh the page with updated status
-        redirect(`/portfolio/preview/${id}`)
+        // Revalidate the current page to show updated status
+        revalidatePath(`/portfolio/preview/${id}`)
       }
     } catch (error) {
       console.error('Error publishing portfolio:', error)
