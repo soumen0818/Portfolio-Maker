@@ -59,12 +59,12 @@ const mockPortfolioData = {
     contributions: [],
   },
   techStack: [
-    { technology: "React", category: "Frontend", proficiency: "Advanced" },
-    { technology: "Next.js", category: "Frontend", proficiency: "Advanced" },
-    { technology: "TypeScript", category: "Frontend", proficiency: "Intermediate" },
-    { technology: "Node.js", category: "Backend", proficiency: "Advanced" },
-    { technology: "PostgreSQL", category: "Database", proficiency: "Intermediate" },
-    { technology: "Docker", category: "DevOps", proficiency: "Intermediate" },
+    "React",
+    "Next.js",
+    "TypeScript",
+    "Node.js",
+    "PostgreSQL",
+    "Docker",
   ],
   projects: [
     {
@@ -150,7 +150,7 @@ export function TemplatePreviewModal({
 
             {/* Action Buttons */}
             <div className="flex gap-2">
-              {onSelect && (
+              {onSelect && templateId && (
                 <Button size="sm" variant={isSelected ? "default" : "outline"} onClick={() => onSelect(templateId)}>
                   {isSelected ? (
                     <>
@@ -172,7 +172,9 @@ export function TemplatePreviewModal({
         {/* Template Preview */}
         <div className="flex-1 overflow-auto border rounded-lg bg-gray-50">
           <div className="transform scale-75 origin-top-left" style={{ width: "133.33%", height: "133.33%" }}>
-            <TemplateRenderer templateId={templateId} data={mockPortfolioData} />
+            {templateId && (
+              <TemplateRenderer templateId={templateId} data={mockPortfolioData} />
+            )}
           </div>
         </div>
       </DialogContent>
