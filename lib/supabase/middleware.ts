@@ -6,6 +6,21 @@ export async function updateSession(request: NextRequest) {
     request,
   })
 
+  // Check if this is a custom domain (not the main application domain)
+  const hostname = request.headers.get("host") || request.nextUrl.hostname
+  const isCustomDomain = !hostname.includes("localhost") &&
+    !hostname.includes("vercel.app") &&
+    !hostname.includes("your-main-domain.com") && // Replace with your actual domain
+    hostname !== request.nextUrl.hostname
+
+  // If it's a custom domain, route to the domain page
+  if (isCustomDomain && request.nextUrl.pathname === "/") {
+    const url = request.nextUrl.clone()
+    url.pathname = "/domain"
+    url.searchParams.set("domain", hostname)
+    return NextResponse.rewrite(url)
+  }
+
   // Debug environment variables
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -54,11 +69,21 @@ export async function updateSession(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
 
+    // Check if this is a custom domain for auth logic
+    const hostname = request.headers.get("host") || request.nextUrl.hostname
+    const isCustomDomain = !hostname.includes("localhost") &&
+      !hostname.includes("vercel.app") &&
+      !hostname.includes("your-main-domain.com") && // Replace with your actual domain
+      hostname !== request.nextUrl.hostname
+
     if (
       request.nextUrl.pathname !== "/" &&
       !user &&
       !request.nextUrl.pathname.startsWith("/login") &&
-      !request.nextUrl.pathname.startsWith("/auth")
+      !request.nextUrl.pathname.startsWith("/auth") &&
+      !request.nextUrl.pathname.startsWith("/public/") &&
+      !request.nextUrl.pathname.startsWith("/domain") &&
+      !isCustomDomain
     ) {
       // no user, potentially respond by redirecting the user to the login page
       const url = request.nextUrl.clone()
