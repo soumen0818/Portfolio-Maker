@@ -6,6 +6,7 @@ import { Plus, Eye, Calendar, Globe, Edit } from "lucide-react"
 import Link from "next/link"
 import { DeletePortfolioButton } from "@/components/delete-portfolio-button"
 import { Navbar } from "@/components/navbar"
+import { DomainManagement } from "@/components/domain-management"
 
 export default async function ProtectedPage() {
   try {
@@ -88,6 +89,9 @@ export default async function ProtectedPage() {
             </div>
 
             <div className="grid gap-6">
+              {/* Domain Management Section */}
+              <DomainManagement portfolios={portfolios || []} />
+
               {/* User's Portfolio */}
               {portfolios && portfolios.length > 0 ? (
                 <>
