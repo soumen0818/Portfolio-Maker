@@ -24,36 +24,79 @@ export async function POST(request: NextRequest) {
         const {
             razorpay_order_id,
             razorpay_payment_id,
-            razorpay_signature
+            razorpay_signature,
+            domain,
+            user_id,
+            amount,
+            coupon_code
         } = await request.json()
 
-        // Verify payment signature
-        const body = razorpay_order_id + "|" + razorpay_payment_id
-        const expectedSignature = crypto
-            .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
-            .update(body.toString())
-            .digest("hex")
+        // Extract domain name and TLD from domain parameter
+        const domainParts = domain.split('.')
+        const domainName = domainParts.slice(0, -1).join('.')
+        const tld = domainParts[domainParts.length - 1]
 
-        if (expectedSignature !== razorpay_signature) {
-            return NextResponse.json({ error: "Invalid payment signature" }, { status: 400 })
-        }
+        // Handle free domains (DEV100 coupon)
+        const isFreeOrder = razorpay_order_id.startsWith('free_') || amount === 0
+        let portfolioId = ''
+        let actualAmount = 0
 
-        // Get order details from Razorpay
-        const order = await razorpay.orders.fetch(razorpay_order_id)
+        if (!isFreeOrder) {
+            // Verify payment signature for paid orders
+            const body = razorpay_order_id + "|" + razorpay_payment_id
+            const expectedSignature = crypto
+                .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
+                .update(body.toString())
+                .digest("hex")
 
-        if (order.status !== "paid") {
-            return NextResponse.json({ error: "Payment not completed" }, { status: 400 })
-        }
+            if (expectedSignature !== razorpay_signature) {
+                return NextResponse.json({ error: "Invalid payment signature" }, { status: 400 })
+            }
 
-        // Extract domain info from order notes
-        const notes = order.notes || {}
-        const user_id = notes.user_id as string
-        const domain_name = notes.domain_name as string
-        const tld = notes.tld as string
-        const portfolio_id = notes.portfolio_id as string
+            // Get order details from Razorpay
+            const order = await razorpay.orders.fetch(razorpay_order_id)
 
-        if (user_id !== user.id) {
-            return NextResponse.json({ error: "User mismatch" }, { status: 400 })
+            if (order.status !== "paid") {
+                return NextResponse.json({ error: "Payment not completed" }, { status: 400 })
+            }
+
+            // Extract domain info from order notes
+            const notes = order.notes || {}
+            const orderUserId = notes.user_id as string
+            const orderDomainName = notes.domain_name as string
+            const orderTld = notes.tld as string
+            portfolioId = notes.portfolio_id as string
+
+            if (orderUserId !== user.id) {
+                return NextResponse.json({ error: "User mismatch" }, { status: 400 })
+            }
+
+            // Verify domain matches order
+            if (orderDomainName !== domainName || orderTld !== tld) {
+                return NextResponse.json({ error: "Domain mismatch" }, { status: 400 })
+            }
+
+            actualAmount = Number(order.amount) / 100 // Convert from paisa to rupees
+        } else {
+            // For free domains, use provided data
+            if (user_id !== user.id) {
+                return NextResponse.json({ error: "User mismatch" }, { status: 400 })
+            }
+
+            // For free domains, we need to get portfolio ID from user's published portfolios
+            const { data: userPortfolios } = await supabase
+                .from("portfolios")
+                .select("id")
+                .eq("user_id", user.id)
+                .eq("is_published", true)
+                .limit(1)
+
+            if (!userPortfolios || userPortfolios.length === 0) {
+                return NextResponse.json({ error: "No published portfolio found" }, { status: 400 })
+            }
+
+            portfolioId = userPortfolios[0].id
+            actualAmount = 0
         }
 
         // Calculate expiry date (1 year from now)
@@ -61,25 +104,71 @@ export async function POST(request: NextRequest) {
         expiryDate.setFullYear(expiryDate.getFullYear() + 1)
 
         // Create domain record
-        const { data: userDomain, error: domainError } = await supabase
+        const domainData: any = {
+            user_id: user.id,
+            domain_name: domainName,
+            tld,
+            portfolio_id: portfolioId,
+            expiry_date: expiryDate.toISOString(),
+            is_active: true,
+            is_verified: false,
+            payment_id: razorpay_payment_id,
+            amount_paid: actualAmount,
+        }
+
+        // Only add coupon_code if it exists, to handle missing column gracefully
+        if (coupon_code) {
+            domainData.coupon_code = coupon_code
+        }
+
+        let userDomain: any
+        const { data: initialDomain, error: domainError } = await supabase
             .from("user_domains")
-            .insert({
-                user_id: user.id,
-                domain_name,
-                tld,
-                portfolio_id,
-                expiry_date: expiryDate.toISOString(),
-                is_active: true,
-                is_verified: false,
-                payment_id: razorpay_payment_id,
-                amount_paid: Number(order.amount) / 100, // Convert from paisa to rupees
-            })
+            .insert(domainData)
             .select()
             .single()
 
         if (domainError) {
             console.error("Error creating domain record:", domainError)
-            return NextResponse.json({ error: "Failed to create domain record" }, { status: 500 })
+
+            // If error is due to missing coupon_code column, retry without it
+            if (domainError.code === 'PGRST204' && domainError.message.includes('coupon_code')) {
+                console.log("Retrying domain creation without coupon_code column...")
+                const { user_id, domain_name, tld, portfolio_id, expiry_date, is_active, is_verified, payment_id, amount_paid } = domainData
+
+                const { data: retryDomain, error: retryError } = await supabase
+                    .from("user_domains")
+                    .insert({
+                        user_id,
+                        domain_name,
+                        tld,
+                        portfolio_id,
+                        expiry_date,
+                        is_active,
+                        is_verified,
+                        payment_id,
+                        amount_paid
+                    })
+                    .select()
+                    .single()
+
+                if (retryError) {
+                    console.error("Retry failed:", retryError)
+                    return NextResponse.json({
+                        error: "Failed to create domain record",
+                        details: "Database schema needs to be updated. Please add coupon_code column to user_domains table."
+                    }, { status: 500 })
+                }
+
+                userDomain = retryDomain
+            } else {
+                return NextResponse.json({
+                    error: "Failed to create domain record",
+                    details: domainError.message
+                }, { status: 500 })
+            }
+        } else {
+            userDomain = initialDomain
         }
 
         // Create domain mapping
@@ -87,7 +176,7 @@ export async function POST(request: NextRequest) {
             .from("domain_mappings")
             .insert({
                 user_domain_id: userDomain.id,
-                portfolio_id,
+                portfolio_id: portfolioId,
                 is_active: true,
                 ssl_status: "pending",
                 dns_configured: false,

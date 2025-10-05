@@ -21,10 +21,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
         }
 
-        const { domain_name, tld, portfolio_id, amount } = await request.json()
+        const { domain_name, tld, portfolio_id, amount, coupon_code } = await request.json()
 
         // Validate required fields
-        if (!domain_name || !tld || !portfolio_id || !amount) {
+        if (!domain_name || !tld || !portfolio_id || amount === undefined) {
             return NextResponse.json({
                 error: "Missing required fields: domain_name, tld, portfolio_id, amount"
             }, { status: 400 })
@@ -71,10 +71,10 @@ export async function POST(request: NextRequest) {
             }, { status: 400 })
         }
 
-        // Get domain pricing
+        // Get domain pricing in INR
         const { data: domainPricing, error: pricingError } = await supabase
             .from("domains")
-            .select("price_usd")
+            .select("price_inr, price_usd")
             .eq("tld", tld)
             .single()
 
@@ -84,10 +84,33 @@ export async function POST(request: NextRequest) {
             }, { status: 400 })
         }
 
-        // Verify the amount matches the domain price
-        if (Number(amount) !== Number(domainPricing.price_usd)) {
+        // Use INR price first, fallback to USD
+        const domainPrice = domainPricing.price_inr || domainPricing.price_usd
+
+        // Validate coupon if provided and calculate expected amount
+        let expectedAmount = domainPrice
+        if (coupon_code) {
+            const validCoupons: { [key: string]: number } = {
+                "NEWUSER": 10,     // 10% off for new users
+                "SAVE20": 20,      // 20% off 
+                "FIRST50": 50,     // 50% off first purchase
+                "WELCOME25": 25,   // 25% welcome discount
+                "STUDENT30": 30,   // 30% student discount
+                "EARLY40": 40,     // 40% early bird
+                "FRIEND15": 15,    // 15% friend referral
+                "DEV100": 100      // 100% off for developers
+            }
+            const discount = validCoupons[coupon_code.toUpperCase()]
+            if (discount) {
+                const discountAmount = (domainPrice * discount) / 100
+                expectedAmount = Math.max(0, domainPrice - discountAmount)
+            }
+        }
+
+        // Verify the amount matches the expected price (with coupon if applicable)
+        if (Number(amount) !== Number(expectedAmount)) {
             return NextResponse.json({
-                error: "Amount doesn't match domain price"
+                error: `Amount doesn't match expected price of ₹${expectedAmount}${coupon_code ? ` (with ${coupon_code} coupon)` : ''}`
             }, { status: 400 })
         }
 
@@ -101,16 +124,23 @@ export async function POST(request: NextRequest) {
                 domain_name,
                 tld,
                 portfolio_id,
+                coupon_code: coupon_code || '',
+                original_price: domainPrice.toString(),
+                discounted_price: amount.toString(),
                 type: "domain_purchase"
             }
         })
 
         return NextResponse.json({
             success: true,
-            order_id: order.id,
+            id: order.id,
             amount: order.amount,
             currency: order.currency,
-            key_id: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+            key_id: process.env.RAZORPAY_KEY_ID,
+            domain_name,
+            tld,
+            coupon_code: coupon_code || null,
+            message: "Razorpay order created successfully"
         })
     } catch (error) {
         console.error("Domain purchase error:", error)

@@ -58,10 +58,11 @@ export async function GET(request: NextRequest) {
 
             return {
                 tld: tld.tld,
-                price: tld.price_usd,
-                renewal_price: tld.renewal_price_usd,
+                price: tld.price_inr || tld.price_usd, // Use INR first, fallback to USD
+                renewal_price: tld.renewal_price_inr || tld.renewal_price_usd,
                 available: !isTaken,
-                full_domain: fullDomain
+                full_domain: fullDomain,
+                currency: 'INR'
             }
         })
 

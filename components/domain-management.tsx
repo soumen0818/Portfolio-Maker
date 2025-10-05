@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Globe, Search, ShoppingCart, ExternalLink, Settings, CheckCircle, Clock } from "lucide-react"
+import { Globe, Search, ShoppingCart, ExternalLink, Settings, CheckCircle, Clock, Tag } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DomainSettings } from "./domain-settings"
@@ -13,8 +13,8 @@ import { DomainSettings } from "./domain-settings"
 interface Domain {
     id: string
     tld: string
-    price_usd: number
-    renewal_price_usd: number
+    price_inr: number
+    renewal_price_inr: number
     is_available: boolean
 }
 
@@ -112,75 +112,18 @@ export function DomainManagement({ portfolios }: DomainManagementProps) {
             return
         }
 
-        try {
-            // Create Razorpay order
-            const response = await fetch("/api/domains/purchase-razorpay", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    domain_name: searchResult.full_domain,
-                    tld: searchResult.tld,
-                    portfolio_id: selectedPortfolioId,
-                    amount: searchResult.price,
-                }),
-            })
+        // Instead of direct payment, redirect to payment page with coupon system
+        const paymentUrl = new URL('/payment', window.location.origin)
+        paymentUrl.searchParams.set('domain', searchResult.full_domain.split('.')[0])
+        paymentUrl.searchParams.set('tld', searchResult.tld)
+        paymentUrl.searchParams.set('amount', searchResult.price.toString())
+        paymentUrl.searchParams.set('portfolioId', selectedPortfolioId)
 
-            const data = await response.json()
+        // Add some context for better UX
+        paymentUrl.searchParams.set('from', 'domain-management')
+        paymentUrl.searchParams.set('fullDomain', searchResult.full_domain)
 
-            if (data.success) {
-                // Initialize Razorpay payment
-                const options = {
-                    key: data.key_id,
-                    amount: data.amount,
-                    currency: data.currency,
-                    name: "Portfolio Domain",
-                    description: `Purchase ${searchResult.full_domain}`,
-                    order_id: data.order_id,
-                    handler: async function (response: any) {
-                        // Verify payment on server
-                        const verifyResponse = await fetch("/api/domains/verify-payment", {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json",
-                            },
-                            body: JSON.stringify({
-                                razorpay_order_id: response.razorpay_order_id,
-                                razorpay_payment_id: response.razorpay_payment_id,
-                                razorpay_signature: response.razorpay_signature,
-                            }),
-                        })
-
-                        const verifyData = await verifyResponse.json()
-
-                        if (verifyData.success) {
-                            alert("Domain purchased successfully!")
-                            fetchUserDomains() // Refresh the domains list
-                            setShowPurchaseDialog(false)
-                        } else {
-                            alert("Payment verification failed: " + verifyData.error)
-                        }
-                    },
-                    prefill: {
-                        name: "User", // You can get this from user profile
-                        email: "user@example.com", // You can get this from user profile
-                    },
-                    theme: {
-                        color: "#7c3aed" // Purple theme to match your app
-                    }
-                }
-
-                // @ts-ignore - Razorpay is loaded via script
-                const rzp = new window.Razorpay(options)
-                rzp.open()
-            } else {
-                alert("Failed to initiate purchase: " + data.error)
-            }
-        } catch (error) {
-            console.error("Error purchasing domain:", error)
-            alert("An error occurred during purchase")
-        }
+        window.location.href = paymentUrl.toString()
     }
 
     const publishedPortfolios = portfolios.filter(p => p.is_published)
@@ -215,6 +158,7 @@ export function DomainManagement({ portfolios }: DomainManagementProps) {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+
                     <div className="flex gap-2">
                         <div className="flex-1">
                             <Input
@@ -251,7 +195,7 @@ export function DomainManagement({ portfolios }: DomainManagementProps) {
                                                     {result.full_domain}
                                                 </span>
                                                 <div className="flex items-center gap-2">
-                                                    <Badge variant="secondary">${result.price}</Badge>
+                                                    <Badge variant="secondary">₹{result.price}</Badge>
                                                     {result.available ? (
                                                         <Badge className="bg-green-600">Available</Badge>
                                                     ) : (
@@ -260,7 +204,7 @@ export function DomainManagement({ portfolios }: DomainManagementProps) {
                                                 </div>
                                             </div>
                                             <p className="text-xs text-gray-400">
-                                                Renewal: ${result.renewal_price}/year
+                                                Renewal: ₹{result.renewal_price}/year
                                             </p>
                                             {result.available ? (
                                                 <Dialog open={showPurchaseDialog && selectedDomain?.tld === result.tld} onOpenChange={setShowPurchaseDialog}>
@@ -268,10 +212,10 @@ export function DomainManagement({ portfolios }: DomainManagementProps) {
                                                         <Button
                                                             size="sm"
                                                             className="w-full bg-green-600 hover:bg-green-700"
-                                                            onClick={() => setSelectedDomain({ tld: result.tld, price_usd: result.price } as Domain)}
+                                                            onClick={() => setSelectedDomain({ tld: result.tld, price_inr: result.price } as Domain)}
                                                         >
                                                             <ShoppingCart className="w-4 h-4 mr-2" />
-                                                            Buy ${result.price}
+                                                            Buy ₹{result.price}
                                                         </Button>
                                                     </DialogTrigger>
                                                     <DialogContent className="bg-slate-900 border-white/20">
@@ -300,7 +244,7 @@ export function DomainManagement({ portfolios }: DomainManagementProps) {
                                                             <div className="bg-white/5 p-4 rounded-lg">
                                                                 <div className="flex justify-between text-white">
                                                                     <span>Domain: {result.full_domain}</span>
-                                                                    <span>${result.price}</span>
+                                                                    <span>₹{result.price}</span>
                                                                 </div>
                                                                 <div className="text-xs text-gray-400 mt-1">
                                                                     Includes 1 year registration
@@ -311,7 +255,7 @@ export function DomainManagement({ portfolios }: DomainManagementProps) {
                                                                 className="w-full bg-green-600 hover:bg-green-700"
                                                                 disabled={!selectedPortfolioId}
                                                             >
-                                                                Proceed to Payment
+                                                                Buy ₹{result.price} 🎟️ (Apply Coupons Next)
                                                             </Button>
                                                         </div>
                                                     </DialogContent>
