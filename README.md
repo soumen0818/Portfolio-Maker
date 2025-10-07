@@ -54,9 +54,9 @@
 | **Frontend** | Next.js 15, React 19, TypeScript |
 | **Styling** | Tailwind CSS, Radix UI, Lucide Icons |
 | **Backend** | Supabase, PostgreSQL |
-| **Payment** | Stripe, Razorpay |
+| **Payment** | Razorpay |
 | **Forms** | React Hook Form, Zod validation |
-| **Deployment** | Vercel (recommended) |
+| **Deployment** | Vercel |
 
 ---
 
